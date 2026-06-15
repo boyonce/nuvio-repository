@@ -24,8 +24,43 @@ jobs:
           DATE=$(echo "$LATEST_RELEASE" | jq -r .published_at)
           DESC=$(echo "$LATEST_RELEASE" | jq -r .body)
 
-          # Dynamically update both app objects inside your AltStore repo structure
-          jq --arg tag "$TAG" --arg date "$DATE" --arg desc "$DESC" --arg e_url "$ENHANCED_URL" --arg f_url "$FULL_URL" \
+          # Define the base template in case the file is missing or empty
+          TEMPLATE='{
+            "name": "luqmanfadlli NuvioMobile iOS Repository",
+            "identifier": "com.luqmanfadlli.nuviomobile-ios",
+            "sourceURL": "https://raw.githubusercontent.com/boyonce/nuvio-repository/main/apps.json",
+            "apps": [
+              {
+                "name": "Nuvio Enhanced",
+                "bundleIdentifier": "com.luqmanfadlli.nuvio.enhanced",
+                "developerName": "luqmanfadlli",
+                "version": "",
+                "versionDate": "",
+                "versionDescription": "",
+                "downloadURL": "",
+                "localizedDescription": "Nuvio Enhanced includes exclusive experimental features, volume boosting, and performance fixes not available in the upstream build.",
+                "iconURL": "https://raw.githubusercontent.com/luqmanfadlli/NuvioMobile-iOS/main/icon.png",
+                "tintColor": "#FF5733",
+                "size": 120000000
+              },
+              {
+                "name": "Nuvio Full",
+                "bundleIdentifier": "com.luqmanfadlli.nuvio.full",
+                "developerName": "luqmanfadlli",
+                "version": "",
+                "versionDate": "",
+                "versionDescription": "",
+                "downloadURL": "",
+                "localizedDescription": "Identical parity to the official TestFlight version with unlocked plugins and trailers.",
+                "iconURL": "https://raw.githubusercontent.com/luqmanfadlli/NuvioMobile-iOS/main/icon.png",
+                "tintColor": "#007AFF",
+                "size": 115000000
+              }
+            ]
+          }'
+
+          # Inject the fetched data into the template layout
+          echo "$TEMPLATE" | jq --arg tag "$TAG" --arg date "$DATE" --arg desc "$DESC" --arg e_url "$ENHANCED_URL" --arg f_url "$FULL_URL" \
             '(.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .version) = $tag |
              (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .versionDate) = $date |
              (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .versionDescription) = $desc |
@@ -34,7 +69,7 @@ jobs:
              (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .versionDate) = $date |
              (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .versionDescription) = $desc |
              (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .downloadURL) = $f_url' \
-             apps.json > apps.tmp.json && mv apps.tmp.json apps.json
+             > apps.json
 
       - name: Commit changes
         run: |
