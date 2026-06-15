@@ -1,0 +1,45 @@
+name: Update apps.json
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch releases and update apps.json
+        run: |
+          # Fetch the latest release information from the source repository
+          LATEST_RELEASE=$(curl -s "https://api.github.com/repos/luqmanfadlli/NuvioMobile-iOS/releases/latest")
+          TAG=$(echo "$LATEST_RELEASE" | jq -r .tag_name)
+          
+          # Extract specific IPA variant download links
+          ENHANCED_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | contains("Enhanced") and endswith(".ipa")) | .browser_download_url')
+          FULL_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name | contains("Full") and endswith(".ipa")) | .browser_download_url')
+          DATE=$(echo "$LATEST_RELEASE" | jq -r .published_at)
+          DESC=$(echo "$LATEST_RELEASE" | jq -r .body)
+
+          # Dynamically update both app objects inside your AltStore repo structure
+          jq --arg tag "$TAG" --arg date "$DATE" --arg desc "$DESC" --arg e_url "$ENHANCED_URL" --arg f_url "$FULL_URL" \
+            '(.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .version) = $tag |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .versionDate) = $date |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .versionDescription) = $desc |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.enhanced") | .downloadURL) = $e_url |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .version) = $tag |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .versionDate) = $date |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .versionDescription) = $desc |
+             (.apps[] | select(.bundleIdentifier == "com.luqmanfadlli.nuvio.full") | .downloadURL) = $f_url' \
+             apps.json > apps.tmp.json && mv apps.tmp.json apps.json
+
+      - name: Commit changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps.json
+          git commit -m "Automated update: bumped repository definitions to $TAG" || exit 0
+          git push
